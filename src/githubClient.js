@@ -49,17 +49,26 @@ class GitHubClient {
       );
 
       if (response.data.encoding === 'base64') {
-        return Buffer.from(response.data.content, 'base64').toString('utf8');
+        return {
+          content: Buffer.from(response.data.content, 'base64').toString('utf8'),
+          found: true
+        };
       }
       
-      return response.data.content;
+      return {
+        content: response.data.content,
+        found: true
+      };
     } catch (error) {
       console.error(`Error fetching file content for ${filePath}:`, error.message);
-      if (error.response?.status === 404) {
-        console.warn(`File not found: ${filePath}`);
-        return null;
-      }
-      throw error;
+      
+      // Return consistent error structure
+      return {
+        content: null,
+        found: false,
+        error: error.response?.status || error.code,
+        message: error.message
+      };
     }
   }
 
@@ -126,22 +135,20 @@ class GitHubClient {
     const results = [];
     
     for (const file of prFiles) {
-      try {
-        const content = await this.getFileContent(file.path);
-        if (content) {
-          results.push({
-            filename: file.filename,
-            path: file.path,
-            content: content,
-            changes: file.changes,
-            additions: file.additions,
-            deletions: file.deletions,
-            patch: file.patch
-          });
-        }
-      } catch (error) {
-        console.warn(`Skipping file ${file.path} due to error:`, error.message);
-        continue;
+      const fileResult = await this.getFileContent(file.path);
+      
+      if (fileResult.found && fileResult.content) {
+        results.push({
+          filename: file.filename,
+          path: file.path,
+          content: fileResult.content,
+          changes: file.changes,
+          additions: file.additions,
+          deletions: file.deletions,
+          patch: file.patch
+        });
+      } else {
+        console.warn(`Skipping file ${file.path}: ${fileResult.message || 'File not found'}`);
       }
     }
 

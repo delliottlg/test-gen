@@ -170,6 +170,15 @@ Generate the tests now:`;
     const baseName = path.basename(originalFilename, path.extname(originalFilename));
     const ext = path.extname(originalFilename);
     
+    // Check if the file already has a test suffix to avoid double naming
+    const testPatterns = ['.test', '.spec', '_test', 'Test', '.Tests'];
+    const hasTestSuffix = testPatterns.some(pattern => baseName.endsWith(pattern));
+    
+    if (hasTestSuffix) {
+      // File already has test suffix, just change extension if needed
+      return baseName + ext;
+    }
+    
     const testExtensions = {
       'csharp': '.Tests.cs',
       'javascript': '.test.js',

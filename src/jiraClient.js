@@ -13,9 +13,11 @@ class JiraClient {
   async getQATickets() {
     try {
       const projects = config.jira.project.split(',').map(p => p.trim());
+      // Properly quote project keys to prevent JQL injection
+      const quotedProjects = projects.map(p => `"${p}"`);
       const projectQuery = projects.length > 1 
-        ? `project IN (${projects.join(',')})` 
-        : `project=${projects[0]}`;
+        ? `project IN (${quotedProjects.join(',')})` 
+        : `project="${projects[0]}"`;
       const jql = `${projectQuery} AND status="QA"`;
       const response = await axios.get(`${this.baseURL}/rest/api/3/search`, {
         auth: this.auth,

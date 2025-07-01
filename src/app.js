@@ -9,11 +9,16 @@ const aiGenerator = require('./aiGenerator');
 const scheduler = require('./scheduler');
 const validators = require('./validators');
 const FileCleanup = require('./fileCleanup');
+const AuthMiddleware = require('./auth');
 
 class TestGeneratorApp {
   constructor() {
     this.app = express();
     this.fileCleanup = new FileCleanup({ retentionDays: 7 });
+    this.auth = new AuthMiddleware({ 
+      apiKey: process.env.API_KEY,
+      enabled: process.env.AUTH_ENABLED !== 'false'
+    });
     this.setupMiddleware();
     this.setupRoutes();
   }
@@ -28,6 +33,15 @@ class TestGeneratorApp {
       console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
       next();
     });
+    
+    // Rate limiting for all endpoints
+    this.app.use(this.auth.rateLimit({
+      windowMs: 15 * 60 * 1000, // 15 minutes
+      max: 100 // limit each IP to 100 requests per windowMs
+    }));
+    
+    // Authentication middleware
+    this.app.use(this.auth.authenticate());
   }
 
   setupRoutes() {
@@ -122,9 +136,11 @@ class TestGeneratorApp {
 
       for (const ticket of tickets) {
         try {
-          await this.processTicket(ticket);
+          const testsGenerated = await this.processTicket(ticket);
           processedCount++;
-          generatedCount++;
+          if (testsGenerated > 0) {
+            generatedCount += testsGenerated;
+          }
         } catch (error) {
           console.error(`Error processing ticket ${ticket.key}:`, error.message);
           continue;
@@ -146,7 +162,7 @@ class TestGeneratorApp {
     const isNew = await database.isNewTicket(ticketKey);
     if (!isNew) {
       console.log(`Ticket ${ticketKey} already processed, skipping...`);
-      return;
+      return 0;
     }
 
     console.log(`Processing ticket: ${ticketKey} - ${ticket.fields.summary}`);
@@ -156,7 +172,7 @@ class TestGeneratorApp {
     if (!githubInfo) {
       console.log(`No valid GitHub PR found for ticket ${ticketKey}`);
       await database.markTicketSeen(ticketKey, null, 0);
-      return;
+      return 0;
     }
 
     const { prNumber, repo } = githubInfo;
@@ -170,7 +186,7 @@ class TestGeneratorApp {
       if (testableFiles.length === 0) {
         console.log(`No testable files found in PR #${prNumber}`);
         await database.markTicketSeen(ticketKey, prNumber, 0);
-        return;
+        return 0;
       }
 
       console.log(`Found ${testableFiles.length} testable files`);
@@ -219,6 +235,7 @@ class TestGeneratorApp {
       }
 
       console.log(`Successfully processed ${ticketKey}: ${testsGenerated} tests generated`);
+      return testsGenerated;
     } catch (error) {
       console.error(`Error processing PR for ticket ${ticketKey}:`, error.message);
       await database.markTicketSeen(ticketKey, prNumber, 0);
@@ -294,6 +311,35 @@ class TestGeneratorApp {
       console.error('Error starting application:', error);
       process.exit(1);
     }
+  }
+  
+  validateApiKeys() {
+    const requiredKeys = [
+      { name: 'JIRA_TOKEN', value: config.jira.token },
+      { name: 'JIRA_EMAIL', value: config.jira.email },
+      { name: 'GITHUB_PAT', value: config.github.pat },
+      { name: 'ANTHROPIC_KEY', value: config.anthropic.apiKey }
+    ];
+    
+    const missing = requiredKeys.filter(key => !key.value);
+    
+    if (missing.length > 0) {
+      console.error('\n⚠️  Missing required API keys:');
+      missing.forEach(key => {
+        console.error(`   - ${key.name}`);
+      });
+      console.error('\nPlease set these environment variables and try again.\n');
+      throw new Error('Missing required API keys');
+    }
+    
+    // Validate Jira base URL
+    if (!config.jira.baseUrl || config.jira.baseUrl === 'https://your-domain.atlassian.net') {
+      console.error('\n⚠️  Invalid JIRA_BASE_URL configuration');
+      console.error('   Please set a valid Jira instance URL\n');
+      throw new Error('Invalid Jira configuration');
+    }
+    
+    console.log('✓ All required API keys validated');
   }
 
   async shutdown() {

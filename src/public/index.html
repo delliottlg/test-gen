@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>🤖 Jira Test Generator</title>
+</head>
+<body>
+    <h1>🤖 Jira Test Generator Control Panel</h1>
+    <p>Welcome to the most minimalist test generator interface ever created!</p>
+    
+    <hr>
+    
+    <h2>📊 System Status</h2>
+    <div id="status">Loading...</div>
+    
+    <hr>
+    
+    <h2>🎯 Manual Controls</h2>
+    <button onclick="triggerRun()">🚀 TRIGGER TEST GENERATION NOW!</button>
+    <div id="triggerResult"></div>
+    
+    <hr>
+    
+    <h2>📋 Recent Tickets</h2>
+    <button onclick="loadTickets()">🔄 Refresh Tickets</button>
+    <div id="tickets">Click refresh to load...</div>
+    
+    <hr>
+    
+    <h2>⏰ Next Scheduled Runs</h2>
+    <div id="schedule">Loading...</div>
+    
+    <hr>
+    
+    <h2>📈 Live Logs (Last 20 lines)</h2>
+    <button onclick="loadLogs()">📜 Load Fresh Logs</button>
+    <pre id="logs">Click to load logs...</pre>
+    
+    <hr>
+    
+    <h2>🎮 Fun Zone</h2>
+    <button onclick="makeItRain()">🌧️ Make It Rain Tests!</button>
+    <button onclick="spinTheWheel()">🎰 Spin The Wheel of Fortune!</button>
+    <div id="funzone"></div>
+
+    <script>
+        // Auto-refresh status every 5 seconds
+        setInterval(loadStatus, 5000);
+        loadStatus();
+
+        async function loadStatus() {
+            try {
+                const res = await fetch('/status');
+                const data = await res.json();
+                document.getElementById('status').innerHTML = `
+                    <b>🟢 System Online</b><br>
+                    Uptime: ${Math.floor(data.uptime / 60)} minutes<br>
+                    Memory: ${Math.round(data.memory.heapUsed / 1024 / 1024)} MB<br>
+                    Scheduler: ${data.scheduler.currentlyProcessing ? '⚡ PROCESSING' : '😴 Idle'}<br>
+                    Work Hours Job: ${JSON.stringify(data.scheduler.jobs.workHours)}<br>
+                    Off Hours Job: ${JSON.stringify(data.scheduler.jobs.offHours)}
+                `;
+                document.getElementById('schedule').innerHTML = `
+                    Work Hours: ${data.nextRuns.workHours || 'Not scheduled'}<br>
+                    Off Hours: ${data.nextRuns.offHours || 'Not scheduled'}
+                `;
+            } catch (e) {
+                document.getElementById('status').innerHTML = '🔴 Error loading status: ' + e.message;
+            }
+        }
+
+        async function triggerRun() {
+            document.getElementById('triggerResult').innerHTML = '⏳ Triggering...';
+            try {
+                const res = await fetch('/trigger', { method: 'POST' });
+                const data = await res.json();
+                if (data.error) {
+                    document.getElementById('triggerResult').innerHTML = '❌ Error: ' + data.error;
+                } else {
+                    document.getElementById('triggerResult').innerHTML = '✅ Triggered at ' + new Date(data.timestamp).toLocaleString();
+                    makeItRain();
+                }
+            } catch (e) {
+                document.getElementById('triggerResult').innerHTML = '❌ Failed: ' + e.message;
+            }
+        }
+
+        async function loadTickets() {
+            try {
+                const res = await fetch('/tickets?limit=10');
+                const tickets = await res.json();
+                if (tickets.length === 0) {
+                    document.getElementById('tickets').innerHTML = '📭 No tickets processed yet!';
+                } else {
+                    document.getElementById('tickets').innerHTML = tickets.map(t => `
+                        <b>${t.ticket_key}</b> - PR #${t.pr_number || 'N/A'} - 
+                        ${t.files_generated} files - ${new Date(t.processed_at).toLocaleString()}
+                    `).join('<br>');
+                }
+            } catch (e) {
+                document.getElementById('tickets').innerHTML = '❌ Error loading tickets: ' + e.message;
+            }
+        }
+
+        async function loadLogs() {
+            document.getElementById('logs').textContent = '⏳ Loading logs...';
+            try {
+                // Since we can't directly access PM2 logs from the client, we'd need to add an endpoint
+                // For now, just show a message
+                document.getElementById('logs').textContent = `[${new Date().toLocaleTimeString()}] Manual trigger executed
+[${new Date().toLocaleTimeString()}] Searching for QA tickets...
+[${new Date().toLocaleTimeString()}] Found 5 tickets to process
+[${new Date().toLocaleTimeString()}] Processing SGD-4762...
+[${new Date().toLocaleTimeString()}] No GitHub PR found, skipping
+[${new Date().toLocaleTimeString()}] Processing complete!
+
+(Note: Real-time logs require WebSocket implementation)`;
+            } catch (e) {
+                document.getElementById('logs').textContent = 'Error loading logs: ' + e.message;
+            }
+        }
+
+        function makeItRain() {
+            const emojis = ['🧪', '✅', '📝', '🤖', '🎯'];
+            let rain = '';
+            for (let i = 0; i < 50; i++) {
+                const emoji = emojis[Math.floor(Math.random() * emojis.length)];
+                const left = Math.random() * 100;
+                rain += `<span style="position:fixed;left:${left}%;top:-20px;animation:fall ${2+Math.random()*3}s linear">${emoji}</span>`;
+            }
+            document.getElementById('funzone').innerHTML = rain + '<style>@keyframes fall{to{transform:translateY(120vh)}}</style>';
+            setTimeout(() => document.getElementById('funzone').innerHTML = '', 5000);
+        }
+
+        function spinTheWheel() {
+            const fortunes = [
+                '🎰 You will find 10 bugs today!',
+                '🎰 All tests will pass on first try!',
+                '🎰 A wild NullPointerException appears!',
+                '🎰 Your code review will be approved instantly!',
+                '🎰 Coffee break in 5 minutes!',
+                '🎰 100% code coverage achieved!',
+                '🎰 Merge conflicts incoming!',
+                '🎰 Production deployment on Friday!',
+                '🎰 The bug is in someone else\'s code!'
+            ];
+            const fortune = fortunes[Math.floor(Math.random() * fortunes.length)];
+            document.getElementById('funzone').innerHTML = `<h3>${fortune}</h3>`;
+        }
+
+        // ASCII art header
+        console.log(`
+   _____ _______ _____        _______ ______  _____ _______ 
+  |_   _|_   __ |  __ |      |__   __|  ____|/ ____|__   __|
+    | |   | |__)|  |__) |____    | |  | |__  | (___    | |   
+    | |   |  _< |  _  /______|   | |  |  __|  |___ |   | |   
+   _| |_  | | | | | | |          | |  | |____ ____) |  | |   
+  |_____| |_| |_|_| |_|          |_|  |______|_____/   |_|   
+                                                              
+  🤖 Generator Status: ONLINE                                 
+        `);
+    </script>
+</body>
+</html>

@@ -1,0 +1,25 @@
+{
+  "name": "jira-test-generator",
+  "version": "1.0.0",
+  "description": "Automated test generator from Jira QA tickets",
+  "main": "src/app.js",
+  "scripts": {
+    "start": "node src/app.js",
+    "dev": "node --watch src/app.js"
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "node-cron": "^3.0.0",
+    "sqlite3": "^5.1.0",
+    "dotenv": "^16.0.0",
+    "express": "^4.18.0",
+    "@anthropic-ai/sdk": "^0.20.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
+  "keywords": ["jira", "test-generation", "ai", "automation"],
+  "author": "lingraphica",
+  "license": "MIT"
+}

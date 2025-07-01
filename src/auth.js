@@ -14,12 +14,6 @@ class AuthMiddleware {
   // Basic API key authentication
   authenticate() {
     return (req, res, next) => {
-      // Skip auth for public endpoints and static assets
-      const publicRoutes = ['/', '/health', '/status', '/webhook/test-runner'];
-      if (publicRoutes.includes(req.path) || req.path.startsWith('/static/')) {
-        return next();
-      }
-
       if (!this.enabled) {
         return next();
       }

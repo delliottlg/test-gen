@@ -39,9 +39,6 @@ class TestGeneratorApp {
       windowMs: 15 * 60 * 1000, // 15 minutes
       max: 100 // limit each IP to 100 requests per windowMs
     }));
-    
-    // Authentication middleware
-    this.app.use(this.auth.authenticate());
   }
 
   setupRoutes() {
@@ -69,8 +66,8 @@ class TestGeneratorApp {
       });
     });
 
-    // Manual trigger endpoint
-    this.app.post('/trigger', async (req, res) => {
+    // Manual trigger endpoint (requires auth)
+    this.app.post('/trigger', this.auth.authenticate(), async (req, res) => {
       try {
         await scheduler.runOnce(() => this.processTickets());
         res.json({ status: 'triggered', timestamp: new Date().toISOString() });
@@ -80,8 +77,8 @@ class TestGeneratorApp {
       }
     });
 
-    // Get processed tickets
-    this.app.get('/tickets', async (req, res) => {
+    // Get processed tickets (requires auth)
+    this.app.get('/tickets', this.auth.authenticate(), async (req, res) => {
       try {
         let limit = parseInt(req.query.limit) || 50;
         
@@ -106,7 +103,7 @@ class TestGeneratorApp {
       res.json({ received: true, timestamp: new Date().toISOString() });
     });
 
-    // Status endpoint
+    // Status endpoint (public for monitoring)
     this.app.get('/status', async (req, res) => {
       try {
         const status = {
